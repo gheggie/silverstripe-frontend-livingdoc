@@ -338,7 +338,7 @@
                 
             });
 
-            
+                    
             livingdoc.interactiveView.page.embedItemClick.add(function (component, directiveName, event) {
                 
             })
@@ -570,7 +570,7 @@
                 
                 var $dupe_button = $("<button class='alert alert-warning'>").text("Duplicate").on("click", function () {
                     var tmpTree = new doc.ComponentTree({design: livingdoc.componentTree.design});
-                    
+                
                     // need to swap out 'next' for the moment otherwise the serialize walker
                     // will do _all_ siblings. 
                     var oldNext = component.model.next;
@@ -586,7 +586,7 @@
 
                 $properties.html(options)
                 
-            });
+        });
 
             $(document).trigger('livingfrontend.updateLivingDoc', [livingdoc]);
         });
@@ -612,7 +612,7 @@
                 var buttonEl = $('<button>').html(b.label);
                 if (b.title) {
                     buttonEl.attr('title', b.title);
-                }
+            }
                 buttonEl.on('mousedown', function (theButton) { return function (e) { e.preventDefault(); theButton.click(); } }(b) );
                 
                 outer_el.append(buttonEl);
@@ -628,7 +628,7 @@
                     left: loc.offsetLeft + 20
                 };
                 loc = newloc;
-            }
+                    }
 
             outer_el.css({position: "absolute", left: loc.left, top: loc.top - 40, background: "transparent", "z-index": 4000});
             appendTo.append(outer_el);
@@ -643,21 +643,21 @@
                 popup.append('<a class="lf-dialog-close" href="#">&times;</a>');
                 popup.append('<div class="lf-dialog-content">');
                 $('body').append(dialog);
-            }
+                }
 
             popup = dialog.find('.lf-popup');
             popup.empty();
             $(dialog).addClass('active-dialog');
             return popup;
-        }
+                        }
 
         LivingFrontendHelper.closeDialog = function () {
             var dialog = $('#lf-dialog');
             if (dialog.length) {
                 dialog.removeClass('active-dialog');
                 dialog.find('lf-dialog-content').html('');
-            }
-        }
+                    }
+                }
 
         $(document).on('click', 'a.lf-dialog-close', function (e) {
             LivingFrontendHelper.closeDialog();
@@ -680,13 +680,13 @@
             
             if (parent) {
                 for (var i in newComponents) {
-                    if (containerName) {
+                if (containerName) {
                         parent.append(containerName, newComponents[i]);
-                    } else {
+                } else {
                         parent.append(newComponents[i]);
+                }
                     }
                 }
-            }
 
 //            for (var i in newComponents) {
 //                if (newComponents[i]) {
