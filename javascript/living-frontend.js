@@ -42,7 +42,7 @@
         });
     });
     
-    $(document).on('click', 'form' + TOOLBAR_FORM +' > .Actions .action', function (e) { 
+    $(document).on('click', 'form' + TOOLBAR_FORM + ' > .Actions .action', function (e) { 
         // catuch the "live" click and redirect instead
         if ($(this).attr('name') == 'action_live') {
             e.preventDefault();
