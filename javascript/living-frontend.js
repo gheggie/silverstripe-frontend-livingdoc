@@ -42,7 +42,7 @@
         });
     });
     
-    $(document).on('click', 'form' + TOOLBAR_FORM +' input.action', function (e) { 
+    $(document).on('click', 'form' + TOOLBAR_FORM +' > .Actions .action', function (e) { 
         // catuch the "live" click and redirect instead
         if ($(this).attr('name') == 'action_live') {
             e.preventDefault();
@@ -72,12 +72,12 @@
         _this.removeAttr('data-changed');
         
         $(this).ajaxSubmit(function (response) {
-            _this.find('input.action').each(function () {
+            _this.find('button.action').each(function () {
                 $(this).prop('disabled', false);
             });
         });
         
-        _this.find('input.action').each(function () {
+        _this.find('button.action').each(function () {
             $(this).prop('disabled', true);
         });
         
@@ -500,7 +500,7 @@
                 $("." + PROPS_HOLDER).remove();
                 $(".livingdocs_EditorField_Toolbar_textopts").remove();
                 var options = $("<div>").addClass(PROPS_HOLDER)
-                options.append("<h4>" + component.model.componentName + " properties</h4>");
+                options.append("<h2>" + component.model.componentName + " properties</h2>");
                 
                 var closer = $('<button class="close properties-closer" title="Close properties"><span class="icon"></span>&times;</button>')
                     .on('click', function(e){
