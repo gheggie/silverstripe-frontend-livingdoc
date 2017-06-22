@@ -350,7 +350,7 @@
 
                 LivingFrontendHelper.focusOn(component);
 
-                options.append("<h4>" + component.model.componentName + " properties</h4>");
+                options.append("<h2>" + component.model.componentName + " properties</h2>");
                 
                 var closer = $('<button class="close properties-closer" title="Close properties"><span class="icon"></span>&times;</button>')
                     .on('click', function(e){
