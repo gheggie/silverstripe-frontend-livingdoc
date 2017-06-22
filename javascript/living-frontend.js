@@ -6,7 +6,8 @@
     }
     
     var livingdoc;
-
+    
+    
     var DOC_HOLDER = '.livingdocs-editor';
     
     var TOOLBAR_FORM = '#Form_LivingForm';
@@ -17,6 +18,72 @@
     var TABLE_ROW_COMPONENT = 'tablerow';
     var TABLE_CELL_COMPONENT = 'tablecell';
     var HEADER_CELL_COMPONENT = 'headercell';
+    
+    
+    window.LivingFrontendHelper = {
+        changeStack: [],
+        activeComponent: null,
+        trackChanges: true,
+        historyLength: 20,
+        
+        focusOn: function (component) {
+            this.activeComponent = component;
+        },
+        blur: function () {
+            this.activeComponent = null;
+        },
+        
+        saveState: function (currentState) {
+            if (this.trackChanges) {
+                var actionId = this.activeComponent ? this.activeComponent.model.id : null;
+                
+                // if the action happened to the currently active component, we remove any previous 
+                // actions to the same one
+                if (this.changeStack.length > 0 && 
+                        actionId && 
+                        this.changeStack[this.changeStack.length-1].cid === actionId) {
+                    this.changeStack.pop();
+                }
+                
+                this.changeStack.push({
+                    time: new Date(),
+                    cid: actionId,
+                    state: currentState
+                });
+                
+                if (this.changeStack.length > this.historyLength) {
+                    this.changeStack.shift();
+                }
+            }
+        },
+        
+        loadState: function (stateIndex) {
+            if (this.changeStack[stateIndex]) {
+                var dataSet = JSON.parse(this.changeStack[stateIndex].state);
+                
+                this.trackChanges = false;
+                while (livingdoc.componentTree.root.first) {
+                    livingdoc.componentTree.root.first.remove();
+                }
+                this.trackChanges = true;
+                livingdoc.componentTree.addDataWithAnimation(dataSet);
+            }
+        },
+
+        notifyDocUpdate: function (realchange) {
+            var docStructure = livingdoc.toJson();
+            $(TOOLBAR_FORM).find('[name=PageStructure]').val(docStructure);
+            $(TOOLBAR_FORM).find('[name=Content]').val(livingdoc.toHtml());
+            
+            this.saveState(docStructure);
+
+            if (realchange) {
+                $(TOOLBAR_FORM).attr('data-changed', 1);
+                $(TOOLBAR_FORM).find('[name=action_publish]').prop('disabled', true);
+            }
+        }
+    };
+
 
     ContentBridge.init();
 
@@ -38,6 +105,8 @@
         });
     });
     
+    // re-structures the form to ensure ajax submits pass through the 
+    // triggered action
     $(document).on('click', 'form' + TOOLBAR_FORM +' > .Actions .action', function (e) { 
         // catuch the "live" click and redirect instead
         if ($(this).attr('name') == 'action_live') {
@@ -94,7 +163,7 @@
 
         if (structure) {
         } else {
-            alert("No struct");
+            alert("No structure found");
         }
 
         if (!window.design) {
@@ -137,7 +206,7 @@
         // bind it into the bridge
         ContentBridge.setLivingDoc(livingdoc);
 
-        updateDataFields();
+        LivingFrontendHelper.notifyDocUpdate();
 
         var activeDesign = doc.design.designs[selectedDesignName];
 
@@ -149,19 +218,19 @@
         });
 
         ready.then(function () {
-            
             // captures model changes that need updating
             livingdoc.model.changed.add(function () {
-                updateDataFields(true);
+                LivingFrontendHelper.notifyDocUpdate(true);
             });
             
             
-            var toolbarHolder = $('.livingdocs-toolbar');
-
+            var $pageOptions = $('.livingdocs-page-options');
             var $components = $('.livingdocs-components');
             var $componentsList = $components.find('ul');
             var $properties = $('.livingdocs-item-properties');
             var componentGroupMap = {};
+            
+            
             
             var addGroup = function (label, num) {
                 var $group = $('<li>');
@@ -239,7 +308,11 @@
                     for (var i in selectedDesign.structures) {
                         var item = selectedDesign.structures[i];
                         if (item.label === selected) {
-                            createComponentList(item.components);
+                            var container = LivingFrontendHelper.activeComponent ? 
+                                    LivingFrontendHelper.activeComponent.model.parentContainer : 
+                                    livingdoc.componentTree.root;
+                            
+                            createComponentList(item.components, container);
                             break;
                         }
                     }
@@ -259,192 +332,13 @@
                     }
                 }
             });
-            
-            /**
-             * Show a list of buttons in a toolbar. The button list should be
-             * [
-             *     { label: 'Label', title: 'tooltop', click: function () {} }
-             * ]
-             * 
-             * @param an array of button objects
-             * @param an object with a .left and .top  property that defines where to show the bar
-             * @returns void
-             */
-            var showButtonBar = function (buttons, loc) {
-                $(".livingdocs_EditorField_Toolbar_textopts").remove()
-                var outer_el = $("<div>").addClass("livingdocs_EditorField_Toolbar_textopts");
-                
-                for (var i = 0; i < buttons.length; i++) {
-                    var b = buttons[i];
-                    var buttonEl = $('<button>').html(b.label);
-                    if (b.title) {
-                        buttonEl.attr('title', b.title);
-                    }
-                    buttonEl.on('mousedown', function (e) { e.preventDefault();})
-                    buttonEl.on('click', b.click);
-                    
-                    outer_el.append(buttonEl);
-                }
 
-                outer_el.css({position: "absolute", left: loc.left, top: loc.top - 40, background: "transparent", "z-index": 1000});
-                $('body').append(outer_el);
-            };
 
             livingdoc.interactiveView.page.editableController.editable.on('paste', function (elem, blocks, cursor) {
                 
             });
 
-            // text formatting options
-            // @TODO - provide more in-paragraph options
-            //  - sup/sub
-            //  - strike
-            //  - text-alignment (an option maybe?) 
-            livingdoc.interactiveView.page.editableController.selection.add(function (view, editableName, selection) {
-                if (selection && selection.isSelection) {
-                    var rect = selection.getCoordinates();
                     
-                    var barOptions = [
-                        {
-                            label: '<strong>B</strong>',
-                            title: 'Bold',
-                            click: function () {
-                                selection.toggleBold()
-                                selection.triggerChange()
-                            }
-                        },
-                        {
-                            label: '<em>I</em>',
-                            title: 'Italics',
-                            click: function () {
-                                selection.toggleEmphasis()
-                                selection.triggerChange();
-                            }
-                        },
-                        {
-                            label: '<sub>s</sub>',
-                            title: 'Subscript',
-                            click: function () {
-                                var s = selection.createElement('sub');
-                                selection.toggle(s);
-                                selection.triggerChange();
-                            }
-                        },
-                        {
-                            label: '<sup>s</sup>',
-                            title: 'Superscript',
-                            click: function () {
-                                var s = selection.createElement('sup');
-                                selection.toggle(s);
-                                selection.triggerChange();
-                            }
-                        },
-                        {
-                            label: 'Clear',
-                            click: function () {
-                                selection.removeFormatting();
-                            }
-                        }
-                    ];
-
-                    $(document).trigger('livingfrontend.updateContentButtonBar', [barOptions, selection, ContentBridge]);
-                    showButtonBar(barOptions, rect);
-                }
-            });
-
-            // HTML directive handling
-            livingdoc.interactiveView.page.htmlElementClick.add(function (component, directiveName, event) {
-                
-                var isEditing = component.$html.attr('data-is-editing');
-                component.$html.addClass('js-editor-block');
-                if (isEditing) {
-                    return;
-                }
-                
-                component.$html.attr('data-is-editing', 1);
-                
-                var currentContent = component.model.getData(directiveName + '-raw');
-                
-                var $edBlock = $('<div>').css({
-                    'width': '100%',
-                    'position': 'absolute',
-                    'top': 0,
-                    'right': 0,
-                    'bottom': '20px',
-                    'left': 0,
-                });
-                var aceeditor = null;
-
-                var $actions = $('<div>');
-                var $save = $('<button>OK</button>');
-                var $cancel = $('<button>Cancel</button>');
-                $actions.css({position: 'absolute', 'bottom': 0}).append($save).append($cancel);
-                
-                $edBlock.text(currentContent);
-                component.$html.html($edBlock);
-                component.$html.append($actions);
-                
-                $edBlock.focus();
-
-                var aceeditor = ace.edit($edBlock[0]);
-                aceeditor.session.setMode('ace/mode/html');
-
-                if (component.$html.hasClass('js-living-markdown')) {
-                    aceeditor.session.setMode('ace/mode/markdown');
-                }
-
-                var cleanUp = function () {
-                    if (aceeditor) {
-                        aceeditor.destroy();
-                    }
-                    $edBlock.remove();
-                    component.$html.removeAttr('data-is-editing');
-                    component.$html.removeClass('js-editor-block');
-                }
-                
-                $cancel.click(function () {
-                    component.$html.html(component.model.get(directiveName));
-                    cleanUp();
-                });
-                
-                $save.click(function () {
-                    var newContent = $edBlock.html();
-                    if (aceeditor) {
-                        newContent = aceeditor.getValue();
-                    }
-                    
-                    var catcher = $('<div>');
-                    catcher.append(newContent); 
-                    catcher.find('script').remove().find('textarea').remove();
-
-                    var rawContent = catcher.html();
-                    component.model.setData(directiveName + '-raw', rawContent);
-
-                    if (component.$html.hasClass('js-living-markdown')) {
-                        // parse it first
-                        var converter = new showdown.Converter();
-                        rawContent = converter.makeHtml(rawContent);
-                    }
-
-                    // highlight code blocks
-                    catcher.html(rawContent);
-                    catcher.find('pre > code').each (function (i, block) {
-                        hljs.highlightBlock(block);
-                    })
-
-                    rawContent = catcher.html();
-
-                    if (!component.model.setContent(directiveName, rawContent)) {
-                        // we need to force this as the content set by rawContent may not
-                        // be different and trigger the HTML update
-                        if (component.model.componentTree) {
-                            component.model.componentTree.contentChanging(component.model, directiveName);
-                        }
-                    }
-                    
-                    cleanUp();
-                })
-            });
-            
             livingdoc.interactiveView.page.embedItemClick.add(function (component, directiveName, event) {
                 
             })
@@ -452,12 +346,16 @@
             livingdoc.interactiveView.page.focus.componentFocus.add(function (component) {
                 $("." + PROPS_HOLDER).remove();
                 $(".livingdocs_EditorField_Toolbar_textopts").remove();
-                var options = $("<div>").addClass(PROPS_HOLDER)
+                var options = $("<div>").addClass(PROPS_HOLDER);
+
+                LivingFrontendHelper.focusOn(component);
+
                 options.append("<h2>" + component.model.componentName + " properties</h2>");
                 
                 var closer = $('<button class="close properties-closer" title="Close properties"><span class="icon"></span>&times;</button>')
                     .on('click', function(e){
                         e.preventDefault();
+                        LivingFrontendHelper.blur();
                         $("." + PROPS_HOLDER).remove();
                         return false;
                     })
@@ -538,35 +436,6 @@
                     }
                 }
 
-                var componentAttrs = component.model.getData('data_attributes');
-                if (componentAttrs) {
-                    options.append("<h2 class=\"properties-heading\">Attributes</h2>");
-                    var changeAttribute = function (componentName, name) {
-                        return function () {
-                            componentAttrs[componentName][name] = $(this).val();
-                            if (component.model.componentTree) {
-                                component.model.componentTree.contentChanging(component.model, componentName);
-                            }
-                        }
-                    };
-                    
-                    for (var componentName in componentAttrs) {
-                        var itemAttrs = componentAttrs[componentName];
-                        if (!itemAttrs) {
-                            continue;
-                        }
-                        options.append('<h5>' + componentName + '</h5>');
-                        for (var key in itemAttrs) {
-                            var attrInput = null;
-                            var attrlbl = $('<label>').text(key);
-                            attrInput = $("<input>").attr({type: 'text'}).val(itemAttrs[key]);
-                            attrInput.on("change", changeAttribute(componentName, key));
-                            attrlbl.append(attrInput);
-                            options.append(attrlbl);
-                        }
-                    }
-                }
-                
                 if (component.model.directives.image && component.model.directives.image.length) {
                     for (var directive_id in component.model.directives.image) {
                         var curr_img = component.model.directives.image[directive_id];
@@ -651,14 +520,12 @@
 
                     var tableNode = component.$html[0];
                     if (tableNode) {
-                        var pos = {
-                            top: tableNode.offsetTop - 20,
-                            left: tableNode.offsetLeft + 20
-                        };
-                        showButtonBar([
+                        
+                        LivingFrontendHelper.showButtonBar([
                             {
                                 label: 'Add row',
                                 click: function () {
+                                    alert("NEW");
                                     var currentRow = component.$html.find('tr:first');
                                     var numCells = 0;
                                     if (currentRow.length) {
@@ -674,6 +541,9 @@
                                     for (var i = 0; i < numCells; i++) {
                                         var newCell = livingdoc.componentTree.getComponent(TABLE_CELL_COMPONENT);
                                         newComponent.append('rowcells', newCell);
+                                        
+                                        var newP = livingdoc.componentTree.getComponent("p");
+                                        newCell.append("cellitems", newP);
                                     }
                                 }
                             },
@@ -688,7 +558,7 @@
                                 }
                             }
                             
-                        ], pos);
+                        ], tableNode);
                         
                     }
                 }
@@ -696,13 +566,102 @@
                 var $delete_button = $("<button class='alert alert-danger'>").text("Remove").on("click", function () {
                     component.model.remove();
                     $("." + PROPS_HOLDER).remove();
-                })
+                });
                 
-                $('<div class="Actions">').appendTo(options).append($delete_button);
+                var $dupe_button = $("<button class='alert alert-warning'>").text("Duplicate").on("click", function () {
+                    var tmpTree = new doc.ComponentTree({design: livingdoc.componentTree.design});
                 
+                    // need to swap out 'next' for the moment otherwise the serialize walker
+                    // will do _all_ siblings. 
+                    var oldNext = component.model.next;
+                    component.model.next = null;
+                    var jsonRep = tmpTree.serialize(component.model, true);
+                    component.model.next = oldNext;
+                    
+                    createComponentList(jsonRep.content, component.model.parentContainer);
+                    
+                });
+                
+                $('<div class="Actions component-actions">').appendTo(options).append($dupe_button).append($delete_button)
+
                 $properties.html(options)
                 
-            })
+        });
+
+            $(document).trigger('livingfrontend.updateLivingDoc', [livingdoc]);
+        });
+        
+
+
+        /**
+         * Show a list of buttons in a toolbar. The button list should be
+         * [
+         *     { label: 'Label', title: 'tooltop', click: function () {} }
+         * ]
+         * 
+         * @param an array of button objects
+         * @param an object with a .left and .top  property that defines where to show the bar
+         * @returns void
+         */
+        LivingFrontendHelper.showButtonBar = function (buttons, loc) {
+            $(".livingdocs_EditorField_Toolbar_textopts").remove()
+            var outer_el = $("<div>").addClass("livingdocs_EditorField_Toolbar_textopts");
+
+            for (var i = 0; i < buttons.length; i++) {
+                var b = buttons[i];
+                var buttonEl = $('<button>').html(b.label);
+                if (b.title) {
+                    buttonEl.attr('title', b.title);
+            }
+                buttonEl.on('mousedown', function (theButton) { return function (e) { e.preventDefault(); theButton.click(); } }(b) );
+                
+                outer_el.append(buttonEl);
+            }
+
+            var appendTo = $('body');
+            if (!loc.left) {
+                // we have a node instead
+                appendTo = $(loc).parent();
+
+                var newloc = {
+                    top: loc.offsetTop + 20,
+                    left: loc.offsetLeft + 20
+                };
+                loc = newloc;
+                    }
+
+            outer_el.css({position: "absolute", left: loc.left, top: loc.top - 40, background: "transparent", "z-index": 4000});
+            appendTo.append(outer_el);
+        };
+
+        LivingFrontendHelper.showDialog = function () {
+            var popup;
+            var dialog = $('#lf-dialog');
+            if (!dialog.length) {
+                dialog = $('<div class="lf-overlay" id="lf-dialog">');
+                popup = $('<div class="lf-popup">').appendTo(dialog);
+                popup.append('<a class="lf-dialog-close" href="#">&times;</a>');
+                popup.append('<div class="lf-dialog-content">');
+                $('body').append(dialog);
+                }
+
+            popup = dialog.find('.lf-popup');
+            popup.empty();
+            $(dialog).addClass('active-dialog');
+            return popup;
+                        }
+
+        LivingFrontendHelper.closeDialog = function () {
+            var dialog = $('#lf-dialog');
+            if (dialog.length) {
+                dialog.removeClass('active-dialog');
+                dialog.find('lf-dialog-content').html('');
+                    }
+                }
+
+        $(document).on('click', 'a.lf-dialog-close', function (e) {
+            LivingFrontendHelper.closeDialog();
+            return false;
         });
         
         /**
@@ -717,39 +676,23 @@
             if (!parent) {
                 parent = livingdoc.componentTree.root;
             }
-            for (var i in components) {
-                // create the new one and set relevant styles
-                var newComponent = livingdoc.componentTree.getComponent(components[i].type);
-
-                if (components[i].styles) {
-                    for (var j in components[i].styles) {
-                        newComponent.setStyle(j, components[i].styles[j]);
-                    }
-                }
-
-                if (components[i].data_attributes) {
-                    for (var directive in components[i].data_attributes) {
-                        for (var attrName in components[i].data_attributes[directive]) {
-                            newComponent.setDirectiveAttribute(directive, attrName, components[i].data_attributes[directive][attrName]);
-                        }
-                    }
-                }
-
-                // if we don't have a containerName, that means we are most likely adding
-                // to the root 
+            var newComponents = livingdoc.componentTree.componentsFromList(components, activeDesign);
+            
+            if (parent) {
+                for (var i in newComponents) {
                 if (containerName) {
-                    parent.append(containerName, newComponent);
+                        parent.append(containerName, newComponents[i]);
                 } else {
-                    parent.prepend(newComponent);
+                        parent.append(newComponents[i]);
                 }
-
-
-                if (components[i].components) {
-                    for (var componentContainerName in components[i].components) {
-                        createComponentList(components[i].components[componentContainerName], newComponent, componentContainerName);
                     }
                 }
-            }
+
+//            for (var i in newComponents) {
+//                if (newComponents[i]) {
+//                    parent.append(newComponents[i]);
+//                }
+//            }
         };
 
         /**
@@ -765,6 +708,9 @@
                     var newCell = livingdoc.componentTree.getComponent(cellType);
                     firstRow.append('rowcells', newCell);
                     firstRow = firstRow.next;
+                    
+                    var newP = livingdoc.componentTree.getComponent("p");
+                    newCell.append("cellitems", newP);
                 }
             }
             return firstRow;
@@ -794,18 +740,6 @@
             });
             ContentBridge.showDialog('image');
         }
-
-
-        // todo(Marcus) Clean this up in some way
-        function updateDataFields(realchange) {
-            $(TOOLBAR_FORM).find('[name=PageStructure]').val(livingdoc.toJson());
-            $(TOOLBAR_FORM).find('[name=Content]').val(livingdoc.toHtml());
-            if (realchange) {
-                $(TOOLBAR_FORM).attr('data-changed', 1);
-                $(TOOLBAR_FORM).find('[name=action_publish]').prop('disabled', true);
-            }
-        }
-
     });
 
 })(jQuery);
