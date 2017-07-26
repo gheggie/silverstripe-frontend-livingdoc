@@ -236,7 +236,7 @@
                 var $group = $('<li>');
                 $group.append('<input type="checkbox" checked>');
                 $group.append('<i>');
-                $group.append('<h2>' + label + '</h2>');
+                $group.append('<h2 class="group-heading">' + label + '</h2>');
                 $group.append('<div class="group-component-holder" id="gch-'+num+'"></div>');
                 
                 $componentsList.append($group);
@@ -299,7 +299,7 @@
                 var structureFields = $('<div class="structure-options">');
                 structureFields.append($('<label for="component-structures">Select a pre-defined set of components, or add individual components below</label>'));
                 structureFields.append(optionList);
-                var structureButton = $('<button>Add</button>');
+                var structureButton = $('<button class="lf-button">Add</button>');
                 structureFields.append(structureButton);
                 $components.prepend(structureFields);
                 
@@ -352,7 +352,7 @@
 
                 options.append("<h2>" + component.model.componentName + " properties</h2>");
                 
-                var closer = $('<button class="close properties-closer" title="Close properties"><span class="icon"></span>&times;</button>')
+                var closer = $('<button class="lf-button close properties-closer" title="Close properties"><span class="icon"></span>&times;</button>')
                     .on('click', function(e){
                         e.preventDefault();
                         LivingFrontendHelper.blur();
@@ -439,7 +439,7 @@
                 if (component.model.directives.image && component.model.directives.image.length) {
                     for (var directive_id in component.model.directives.image) {
                         var curr_img = component.model.directives.image[directive_id];
-                        var $image_button = $("<button>").text("Select \"" + curr_img.name +'"').on("click", function () {
+                        var $image_button = $("<button class=\"lf-button lf-dialog-trigger select-image\">").text("Select \"" + curr_img.name +'"').on("click", function () {
                             selectImage(function (attrs) {
                                 // ComponentView.prototype.set
                                 
@@ -456,7 +456,7 @@
                 if (component.model.directives.link && component.model.directives.link.length) {
                     for (var linkIndex in component.model.directives.link) {
                         var _thisLink = component.model.directives.link[linkIndex];
-                        var $link_button = $("<button>").text('Select "' + _thisLink.name + '"').on("click", function () {
+                        var $link_button = $("<button class=\"lf-button lf-dialog-trigger select-link\">").text('Select "' + _thisLink.name + '"').on("click", function () {
                             selectLink(function (attrs) {
                                 // ComponentView.prototype.set
                                 component.model.setContent(_thisLink.name, attrs.href);
@@ -491,7 +491,7 @@
                             attrInput.val(currentValue.source);
                         }
                         
-                        var attrButton = $('<button>✔</button>');
+                        var attrButton = $('<button class="lf-button">✔</button>');
                         attrButton.on("click", function () {
                             var selected = attrInput.val();
                             if (selected) {
@@ -563,12 +563,12 @@
                     }
                 }
                 
-                var $delete_button = $("<button class='alert alert-danger'>").text("Remove").on("click", function () {
+                var $delete_button = $("<button class='lf-button alert alert-danger'>").text("Remove").on("click", function () {
                     component.model.remove();
                     $("." + PROPS_HOLDER).remove();
                 });
                 
-                var $dupe_button = $("<button class='alert alert-warning'>").text("Duplicate").on("click", function () {
+                var $dupe_button = $("<button class='lf-button alert alert-warning'>").text("Duplicate").on("click", function () {
                     var tmpTree = new doc.ComponentTree({design: livingdoc.componentTree.design});
                 
                     // need to swap out 'next' for the moment otherwise the serialize walker
@@ -643,21 +643,21 @@
                 popup.append('<a class="lf-dialog-close" href="#">&times;</a>');
                 popup.append('<div class="lf-dialog-content">');
                 $('body').append(dialog);
-                }
+            }
 
             popup = dialog.find('.lf-popup');
             popup.empty();
             $(dialog).addClass('active-dialog');
             return popup;
-                        }
+        }
 
         LivingFrontendHelper.closeDialog = function () {
             var dialog = $('#lf-dialog');
             if (dialog.length) {
                 dialog.removeClass('active-dialog');
                 dialog.find('lf-dialog-content').html('');
-                    }
-                }
+            }
+        }
 
         $(document).on('click', 'a.lf-dialog-close', function (e) {
             LivingFrontendHelper.closeDialog();
